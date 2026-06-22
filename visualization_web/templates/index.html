@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}首页 - 餐饮大数据分析平台{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📊 数据概览仪表盘</h1>
+
+<div class="stat-grid" id="statGrid">
+    <!-- JS动态填充 -->
+</div>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <div class="card-title">🗺️ 全国餐饮点评数据分布</div>
+        <div id="miniMap" style="width:100%;height:380px;"></div>
+    </div>
+    <div class="chart-box">
+        <div class="card-title">🏆 城市点评数量 Top10</div>
+        <div id="top10Chart" style="width:100%;height:380px;"></div>
+    </div>
+</div>
+
+<script>
+// ── 首页统计卡片 ──
+fetch('/api/overview')
+    .then(r => r.json())
+    .then(d => {
+        const stats = [
+            { label: '覆盖城市', number: d.total_cities, emoji: '📍' },
+            { label: '商家总数', number: (d.total_merchants/10000).toFixed(1)+'万', emoji: '🏪' },
+            { label: '点评总数', number: (d.total_reviews/10000).toFixed(1)+'万', emoji: '✍️' },
+            { label: '全国人均消费', number: '¥'+d.avg_cost, emoji: '💰' },
+        ];
+        document.getElementById('statGrid').innerHTML = stats.map(s => `
+            <div class="stat-card">
+                <div style="font-size:28px;">${s.emoji}</div>
+                <div class="number">${s.number}</div>
+                <div class="label">${s.label}</div>
+            </div>
+        `).join('');
+    });
+
+// ── 迷你地图 ──（城市数据已聚合到省级行政区以匹配 GeoJSON）
+var CITY_MAP = { '北京':'北京市','上海':'上海市','重庆':'重庆市','广州':'广东省','深圳':'广东省','南京':'江苏省','苏州':'江苏省','杭州':'浙江省','成都':'四川省','武汉':'湖北省' };
+Promise.all([
+    fetch('/api/city_stats').then(r => r.json()),
+    window._chinaMapPromise
+]).then(([data, _]) => {
+        // 将城市数据聚合到省份级别
+        var provData = {};
+        data.forEach(function(d) {
+            var prov = CITY_MAP[d.name] || d.name;
+            if (!provData[prov]) provData[prov] = 0;
+            provData[prov] += d.merchants;
+        });
+        var mapData = Object.keys(provData).map(function(k) { return {name: k, value: provData[k]}; });
+        var merchVals = mapData.map(function(d) { return d.value; });
+	    var mapChart = echarts.init(document.getElementById('miniMap'));
+        mapChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}<br/>商家: {c} 家' },
+            visualMap: {
+                min: Math.min.apply(null, merchVals),
+	            max: Math.max.apply(null, merchVals),
+                text: ['多', '少'],
+                inRange: { color: ['#fff5eb','#fdbe85','#fd8d3c','#e6550d','#a63603'] }
+            },
+            series: [{
+                type: 'map', map: 'china', roam: false,
+                label: { show: false },
+                data: mapData
+            }]
+        });
+
+        // ── Top10柱状图 ──
+        var barChart = echarts.init(document.getElementById('top10Chart'));
+        var sorted = [...data].sort((a,b) => b.reviews - a.reviews).slice(0,10);
+        barChart.setOption({
+            tooltip: { trigger: 'axis' },
+            xAxis: { type: 'value', name: '点评数(万)' },
+            yAxis: { type: 'category', data: sorted.map(d=>d.name).reverse() },
+            series: [{
+                type: 'bar',
+                data: sorted.map(d => (d.reviews/10000).toFixed(0)).reverse(),
+                itemStyle: { color: '#e74c3c', borderRadius: [0,4,4,0] },
+                label: { show: true, position: 'right' }
+            }],
+            grid: { left: 60, right: 50 }
+        });
+    });
+</script>
+{% endblock %}

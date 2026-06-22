@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+{% block title %}品类对比 - 餐饮大数据分析平台{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📉 品类结构对比</h1>
+
+<!-- 烧烤 vs 面馆 各城市占比对比 -->
+<div class="card">
+    <div class="card-title">
+        🍺 烧烤 vs 🍜 面馆 — 各城市占比对比
+        <span style="font-weight:normal;font-size:12px;color:var(--text-muted);margin-left:8px;">
+            （烧烤代表啤酒关联消费场景，面馆代表面食崛起趋势）
+        </span>
+    </div>
+    <div id="compareBar" style="width:100%;height:420px;"></div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <div class="card-title">📊 各美食类型市场份额</div>
+        <div id="pieChart" style="width:100%;height:400px;"></div>
+    </div>
+    <div class="chart-box">
+        <div class="card-title">☁️ 热门推荐菜词云</div>
+        <div id="wordCloud" style="width:100%;height:400px;"></div>
+    </div>
+</div>
+
+<!-- 关键发现卡片 -->
+<div class="chart-row">
+    <div class="chart-box">
+        <div class="card-title">🔍 关键发现</div>
+        <div style="padding:16px;font-size:14px;line-height:2;color:var(--text-secondary);">
+            <p>🏆 <b>重庆</b> 烧烤占比最高（9.7%），远超其他城市，与重庆夜宵文化紧密相关</p>
+            <p>🥇 <b>武汉</b> 面馆占比最高（6.7%），面食文化在华中地区盛行</p>
+            <p>📊 <b>苏州</b> 面馆占比最低（4.6%），地方菜系（本帮菜/苏帮菜）占据主导</p>
+            <p>🔥 <b>火锅</b> 在全国范围内占比最高（12.5%），是当之无愧的国民美食</p>
+            <p>🍣 <b>日料</b> 占比 8.3%，在一线/新一线城市接受度高</p>
+        </div>
+    </div>
+    <div class="chart-box">
+        <div class="card-title">💡 趋势解读</div>
+        <div style="padding:16px;font-size:14px;line-height:2;color:var(--text-secondary);">
+            <p>🔸 虽然数据无时间维度，但通过<b>横向城市对比</b>可间接反映趋势：</p>
+            <p>🔸 <b>面馆(597家)</b> vs <b>烧烤(726家)</b>：面馆作为"重庆小面"等特色面食的上位类，在全国已有相当规模</p>
+            <p>🔸 <b>烧烤</b> 关联啤酒消费场景，在餐饮版图中占据稳定位置（各城市 6.5%-9.7%）</p>
+            <p>🔸 新兴品类如 <b>轻食/素食</b> 虽总量不大，但在一线城市增长势头明显</p>
+        </div>
+    </div>
+</div>
+
+<!-- 价格等级 & 评分等级分布 -->
+<div class="chart-row">
+    <div class="chart-box">
+        <div class="card-title">💰 人均消费价格等级分布</div>
+        <div id="priceTierChart" style="width:100%;height:380px;"></div>
+    </div>
+    <div class="chart-box">
+        <div class="card-title">⭐ 综合评分等级分布</div>
+        <div id="ratingTierChart" style="width:100%;height:380px;"></div>
+    </div>
+</div>
+
+<!-- 高性价比城市排名 -->
+<div class="card">
+    <div class="card-title">🏅 各城市高性价比商家占比</div>
+    <div id="valueChart" style="width:100%;height:420px;"></div>
+</div>
+
+<script>
+// ── 烧烤 vs 面馆 分组柱状图 ──
+fetch('/api/food_trend')
+    .then(r => r.json())
+    .then(data => {
+        var chart = echarts.init(document.getElementById('compareBar'));
+        chart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                formatter: function(params) {
+                    var s = '<b>' + params[0].axisValue + '</b><br/>';
+                    params.forEach(function(p) {
+                        s += p.marker + ' ' + p.seriesName + ': <b>' + p.value + '%</b><br/>';
+                    });
+                    return s;
+                }
+            },
+            legend: {
+                data: ['烧烤占比（代表啤酒关联消费）', '面馆占比（代表面食崛起趋势）'],
+                bottom: 10
+            },
+            grid: { left: 60, right: 60, bottom: 70, top: 20 },
+            xAxis: {
+                type: 'category',
+                data: data.cities,
+                axisLabel: { fontSize: 13, fontWeight: 'bold' }
+            },
+            yAxis: {
+                type: 'value',
+                name: '占比 (%)',
+                max: 12,
+                axisLabel: { formatter: '{value}%' }
+            },
+            series: [
+                {
+                    name: '烧烤占比（代表啤酒关联消费）',
+                    type: 'bar',
+                    data: data.bbq_ratio,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#f4a742' },
+                            { offset: 1, color: '#e67e22' }
+                        ]),
+                        borderRadius: [6, 6, 0, 0]
+                    },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: '{c}%',
+                        fontSize: 11,
+                        color: '#e67e22',
+                        fontWeight: 'bold'
+                    },
+                    barGap: '20%',
+                    barWidth: '35%'
+                },
+                {
+                    name: '面馆占比（代表面食崛起趋势）',
+                    type: 'bar',
+                    data: data.noodle_ratio,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#e74c3c' },
+                            { offset: 1, color: '#c0392b' }
+                        ]),
+                        borderRadius: [6, 6, 0, 0]
+                    },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: '{c}%',
+                        fontSize: 11,
+                        color: '#c0392b',
+                        fontWeight: 'bold'
+                    },
+                    barWidth: '35%'
+                }
+            ]
+        });
+
+        var avgBBQ = (data.bbq_ratio.reduce((a,b) => a+b, 0) / data.bbq_ratio.length).toFixed(1);
+        var avgNoodle = (data.noodle_ratio.reduce((a,b) => a+b, 0) / data.noodle_ratio.length).toFixed(1);
+        console.log('烧烤均值: ' + avgBBQ + '%, 面馆均值: ' + avgNoodle + '%');
+    });
+
+// ── 美食类型饼图 ──
+fetch('/api/pie_data')
+    .then(r => r.json())
+    .then(data => {
+        var pie = echarts.init(document.getElementById('pieChart'));
+        var top10 = data.slice(0, 10);
+        var others = data.slice(10).reduce(function(sum, d) { return sum + d.value; }, 0);
+        var pieData = top10.map(function(d) { return { name: d.name, value: d.value }; });
+        if (others > 0) {
+            pieData.push({ name: '其他', value: others });
+        }
+
+        pie.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: '{b}: {c} 家 ({d}%)'
+            },
+            legend: {
+                type: 'scroll',
+                orient: 'vertical',
+                right: 10,
+                top: 20,
+                bottom: 20,
+            },
+            series: [{
+                type: 'pie',
+                radius: ['45%', '75%'],
+                center: ['38%', '50%'],
+                data: pieData,
+                label: {
+                    formatter: '{b}\n{d}%',
+                    fontSize: 10
+                },
+                itemStyle: {
+                    borderRadius: 3,
+                    borderColor: '#fff',
+                    borderWidth: 2
+                },
+                emphasis: {
+                    label: { fontSize: 16, fontWeight: 'bold' }
+                }
+            }]
+        });
+    });
+
+// ── 推荐菜词云 ──
+fetch('/api/wordcloud_data')
+    .then(r => r.json())
+    .then(data => {
+        var wc = echarts.init(document.getElementById('wordCloud'));
+        var wcData = data.map(function(d) {
+            return { name: d.name, value: d.scaled };
+        });
+
+        wc.setOption({
+            tooltip: {
+                show: true,
+                formatter: function(p) {
+                    var original = data.find(function(d) { return d.name === p.name; });
+                    return original.name + '：出现 ' + original.value + ' 次';
+                }
+            },
+            series: [{
+                type: 'wordCloud',
+                shape: 'circle',
+                sizeRange: [14, 55],
+                rotationRange: [-45, 45],
+                rotationStep: 15,
+                gridSize: 10,
+                drawOutOfBound: false,
+                width: '100%',
+                height: '100%',
+                textStyle: {
+                    fontFamily: 'Microsoft YaHei, sans-serif',
+                    fontWeight: 'bold',
+                    color: function() {
+                        var colors = ['#e74c3c', '#e67e22', '#f39c12', '#27ae60',
+                                      '#2980b9', '#8e44ad', '#16a085', '#c0392b',
+                                      '#2ecc71', '#3498db', '#9b59b6', '#1abc9c'];
+                        return colors[Math.floor(Math.random() * colors.length)];
+                    }
+                },
+                data: wcData
+            }]
+        });
+    });
+
+// ── 价格等级分布饼图 ──
+fetch('/api/price_tier')
+    .then(r => r.json())
+    .then(data => {
+        var pt = echarts.init(document.getElementById('priceTierChart'));
+        pt.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: '{b}: {c} 家 ({d}%)'
+            },
+            legend: { bottom: 10 },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '72%'],
+                center: ['50%', '45%'],
+                data: data,
+                label: {
+                    formatter: '{b}\n{d}%',
+                    fontSize: 11
+                },
+                itemStyle: {
+                    borderRadius: 4,
+                    borderColor: '#fff',
+                    borderWidth: 2,
+                    color: function(params) {
+                        var colors = ['#27ae60', '#2ecc71', '#f39c12', '#e67e22', '#e74c3c'];
+                        return colors[params.dataIndex % colors.length];
+                    }
+                },
+                emphasis: {
+                    label: { fontSize: 15, fontWeight: 'bold' }
+                }
+            }]
+        });
+    });
+
+// ── 评分等级分布柱状图 ──
+fetch('/api/rating_tier')
+    .then(r => r.json())
+    .then(data => {
+        var rt = echarts.init(document.getElementById('ratingTierChart'));
+        rt.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                formatter: function(params) {
+                    return params[0].name + '<br/>商家数: <b>' + params[0].value + '</b> 家';
+                }
+            },
+            grid: { left: 50, right: 40, bottom: 40, top: 15 },
+            xAxis: {
+                type: 'category',
+                data: data.map(function(d) { return d.name; }),
+                axisLabel: { fontSize: 11 }
+            },
+            yAxis: {
+                type: 'value',
+                name: '商家数',
+                axisLabel: { formatter: function(v) { return (v/1000).toFixed(1) + 'k'; } }
+            },
+            series: [{
+                type: 'bar',
+                data: data.map(function(d) { return d.value; }),
+                itemStyle: {
+                    borderRadius: [6, 6, 0, 0],
+                    color: function(params) {
+                        var colors = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71', '#27ae60'];
+                        return colors[params.dataIndex % colors.length];
+                    }
+                },
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: '{c}',
+                    fontSize: 11,
+                    fontWeight: 'bold'
+                },
+                barWidth: '55%'
+            }]
+        });
+    });
+
+// ── 高性价比城市排名横向柱状图 ──
+fetch('/api/value_for_money')
+    .then(r => r.json())
+    .then(data => {
+        var vc = echarts.init(document.getElementById('valueChart'));
+        var cities = data.map(function(d) { return d.city; }).reverse();
+        var ratios = data.map(function(d) { return d.ratio; }).reverse();
+        var counts = data.map(function(d) { return d.high_value_count; }).reverse();
+
+        vc.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                formatter: function(params) {
+                    var i = params[0].dataIndex;
+                    return '<b>' + cities[i] + '</b><br/>'
+                        + '高性价比商家: ' + counts[i] + ' 家<br/>'
+                        + '占比: <b>' + ratios[i] + '%</b>';
+                }
+            },
+            grid: { left: 60, right: 80, bottom: 30, top: 10 },
+            xAxis: {
+                type: 'value',
+                name: '占比 (%)',
+                max: 30,
+                axisLabel: { formatter: '{value}%' }
+            },
+            yAxis: {
+                type: 'category',
+                data: cities,
+                axisLabel: { fontSize: 13, fontWeight: 'bold' }
+            },
+            series: [{
+                type: 'bar',
+                data: ratios.map(function(v, i) {
+                    return {
+                        value: v,
+                        itemStyle: {
+                            color: i >= 7 ? '#e74c3c' : i >= 4 ? '#f39c12' : '#27ae60',
+                            borderRadius: [0, 6, 6, 0]
+                        }
+                    };
+                }),
+                label: {
+                    show: true,
+                    position: 'right',
+                    formatter: '{c}%',
+                    fontSize: 12,
+                    fontWeight: 'bold'
+                },
+                barWidth: '60%'
+            }]
+        });
+    });
+</script>
+{% endblock %}

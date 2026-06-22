@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}城市分布 - 餐饮大数据分析平台{% endblock %}
+
+{% block extra_head %}
+<style>
+    .tab-btn {
+        padding: 9px 22px;
+        font-size: 14px;
+        border: 1.5px solid var(--border);
+        background: var(--surface);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all var(--transition);
+        font-weight: 500;
+    }
+    .tab-btn:first-of-type { border-radius: 8px 0 0 8px; }
+    .tab-btn:last-of-type { border-radius: 0 8px 8px 0; }
+    .tab-btn + .tab-btn { margin-left: -1px; }
+    .tab-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+    }
+    .tab-btn:hover:not(.active) {
+        background: var(--primary-ghost);
+        border-color: var(--primary-light);
+    }
+    table.city-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: center;
+        font-size: 14px;
+    }
+    table.city-table thead tr {
+        background: var(--primary-ghost);
+        border-bottom: 2px solid var(--primary);
+    }
+    table.city-table th {
+        padding: 12px 10px;
+        font-family: 'Noto Serif SC', 'PingFang SC', serif;
+        font-weight: 700;
+        color: var(--text-secondary);
+    }
+    table.city-table td {
+        padding: 10px;
+    }
+    table.city-table tbody tr {
+        border-bottom: 1px solid var(--border);
+        transition: background var(--transition);
+    }
+    table.city-table tbody tr:nth-child(even) {
+        background: #fdfaf7;
+    }
+    table.city-table tbody tr:hover {
+        background: var(--primary-ghost);
+    }
+    table.city-table .rank-num {
+        font-weight: 700;
+        color: var(--primary);
+    }
+    table.city-table .city-name {
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🗺️ 城市分布分析</h1>
+
+<!-- Tab切换 -->
+<div style="margin-bottom:20px;">
+    <button onclick="switchMap('merchants')" id="btn-merchants" class="tab-btn active">商家数量</button><button onclick="switchMap('reviews')" id="btn-reviews" class="tab-btn">点评数量</button><button onclick="switchMap('avg_cost')" id="btn-avg_cost" class="tab-btn">人均消费</button>
+</div>
+
+<div class="card">
+    <div id="mainMap" style="width:100%;height:550px;"></div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <div class="card-title">📊 各城市商家数量与点评数量对比</div>
+        <div id="cityCompare" style="width:100%;height:400px;"></div>
+    </div>
+    <div class="chart-box">
+        <div class="card-title">💰 各城市人均消费排名</div>
+        <div id="costRank" style="width:100%;height:400px;"></div>
+    </div>
+</div>
+
+<!-- 城市统计表格 -->
+<div class="card">
+    <div class="card-title">📋 城市数据明细表</div>
+    <div style="overflow-x:auto;">
+        <table class="city-table" id="cityTable">
+            <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>城市</th>
+                    <th>商家数量</th>
+                    <th>点评数量</th>
+                    <th>平均人均消费（元）</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- JS动态填充 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let currentMapType = 'merchants';
+let cityData = [];
+
+Promise.all([
+    fetch('/api/city_stats').then(r => r.json()),
+    window._chinaMapPromise
+]).then(([data, _]) => {
+        cityData = data;
+        renderAllCharts();
+    });
+
+function switchMap(type) {
+    currentMapType = type;
+    ['merchants','reviews','avg_cost'].forEach(function(t) {
+        var btn = document.getElementById('btn-'+t);
+        if (t === type) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    updateMap();
+}
+
+function renderAllCharts() {
+    updateMap();
+    renderCityCompare();
+    renderCostRank();
+    renderTable();
+}
+
+function renderTable() {
+    // 按商家数降序排列
+    var sorted = [...cityData].sort((a,b) => b.merchants - a.merchants);
+    var tbody = document.querySelector('#cityTable tbody');
+    tbody.innerHTML = sorted.map(function(d, i) {
+        return '<tr>'
+            + '<td class="rank-num">' + (i+1) + '</td>'
+            + '<td class="city-name">' + d.name + '</td>'
+            + '<td>' + d.merchants.toLocaleString() + '</td>'
+            + '<td>' + (d.reviews/10000).toFixed(1) + '万</td>'
+            + '<td>¥' + d.avg_cost + '</td>'
+            + '</tr>';
+    }).join('');
+}
+
+// 城市名 → GeoJSON 省份名映射（DataV GeoJSON 使用完整行政区名称）
+var CITY_TO_PROVINCE = {
+    '北京': '北京市', '上海': '上海市', '重庆': '重庆市',
+    '广州': '广东省', '深圳': '广东省',
+    '南京': '江苏省', '苏州': '江苏省',
+    '杭州': '浙江省', '成都': '四川省', '武汉': '湖北省'
+};
+
+function aggregateToProvince(cityList, key) {
+    var provinceMap = {};
+    cityList.forEach(function(d) {
+        var prov = CITY_TO_PROVINCE[d.name] || d.name;
+        if (!provinceMap[prov]) {
+            provinceMap[prov] = { sum: 0, count: 0, merchants: 0 };
+        }
+        if (key === 'avg_cost' || key === 'avg_popularity' || key === 'high_value_ratio') {
+            provinceMap[prov].sum += d[key] * d.merchants;
+            provinceMap[prov].merchants += d.merchants;
+        } else {
+            provinceMap[prov].sum += d[key];
+        }
+        provinceMap[prov].count += 1;
+    });
+    var result = [];
+    for (var prov in provinceMap) {
+        var val;
+        if (key === 'avg_cost' || key === 'avg_popularity' || key === 'high_value_ratio') {
+            val = provinceMap[prov].merchants > 0
+                ? Math.round(provinceMap[prov].sum / provinceMap[prov].merchants) : 0;
+        } else {
+            val = provinceMap[prov].sum;
+        }
+        result.push({ name: prov, value: val });
+    }
+    return result;
+}
+
+function updateMap() {
+    var chart = echarts.init(document.getElementById('mainMap'));
+    var mapConfig = {
+        merchants: { title: '全国各城市餐饮商家数量分布', key: 'merchants', unit: ' 家' },
+        reviews:   { title: '全国各城市餐饮点评数量分布', key: 'reviews', unit: ' 条' },
+        avg_cost:  { title: '全国各城市人均消费分布', key: 'avg_cost', unit: ' 元' },
+    };
+    var cfg = mapConfig[currentMapType];
+    var mapData = aggregateToProvince(cityData, cfg.key);
+    var vals = mapData.map(function(d) { return d.value; });
+    chart.setOption({
+        title: { text: cfg.title, left: 'center', top: 10 },
+        tooltip: { trigger: 'item', formatter: '{b}<br/>' + cfg.title.replace('全国各城市','') + ': {c}' + cfg.unit },
+        visualMap: {
+            min: Math.min.apply(null, vals),
+            max: Math.max.apply(null, vals),
+            text: ['高', '低'],
+            inRange: { color: ['#e0f3f8','#ffffbf','#fee090','#fc8d59','#d73027'] }
+        },
+        series: [{
+            type: 'map', map: 'china', roam: true,
+            label: { show: true, fontSize: 10 },
+            data: mapData
+        }]
+    });
+}
+
+function renderCityCompare() {
+    var chart = echarts.init(document.getElementById('cityCompare'));
+    var sorted = [...cityData].sort((a,b) => b.merchants - a.merchants);
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['商家数', '点评数(万)'] },
+        xAxis: { type: 'category', data: sorted.map(function(d) { return d.name; }),
+                 axisLabel: { rotate: 45 } },
+        yAxis: [
+            { type: 'value', name: '商家数' },
+            { type: 'value', name: '点评数(万)' }
+        ],
+        series: [
+            { name: '商家数', type: 'bar', data: sorted.map(function(d) { return d.merchants; }),
+              itemStyle: { color: '#e74c3c' } },
+            { name: '点评数(万)', type: 'bar', yAxisIndex: 1,
+              data: sorted.map(function(d) { return (d.reviews/10000).toFixed(0); }),
+              itemStyle: { color: '#3498db' } }
+        ],
+        grid: { bottom: 80 }
+    });
+}
+
+function renderCostRank() {
+    var chart = echarts.init(document.getElementById('costRank'));
+    var sorted = [...cityData].sort((a,b) => b.avg_cost - a.avg_cost);
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'value', name: '人均消费(元)' },
+        yAxis: { type: 'category', data: sorted.map(function(d) { return d.name; }).reverse() },
+        series: [{
+            type: 'bar',
+            data: sorted.map(function(d) { return d.avg_cost; }).reverse(),
+            itemStyle: {
+                color: new echarts.graphic.LinearGradient(0,0,1,0, [
+                    {offset:0, color:'#f9ca24'}, {offset:1, color:'#e74c3c'}
+                ]),
+                borderRadius: [0,4,4,0]
+            },
+            label: { show: true, position: 'right', formatter: '¥{c}' }
+        }],
+        grid: { left: 55, right: 55 }
+    });
+}
+</script>
+{% endblock %}

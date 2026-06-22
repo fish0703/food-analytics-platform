@@ -1,0 +1,62 @@
+[
+  {
+    "city": "重庆",
+    "high_value_count": 243,
+    "total": 951,
+    "ratio": 25.6
+  },
+  {
+    "city": "武汉",
+    "high_value_count": 224,
+    "total": 996,
+    "ratio": 22.5
+  },
+  {
+    "city": "成都",
+    "high_value_count": 212,
+    "total": 1023,
+    "ratio": 20.7
+  },
+  {
+    "city": "南京",
+    "high_value_count": 177,
+    "total": 961,
+    "ratio": 18.4
+  },
+  {
+    "city": "苏州",
+    "high_value_count": 180,
+    "total": 1039,
+    "ratio": 17.3
+  },
+  {
+    "city": "广州",
+    "high_value_count": 142,
+    "total": 973,
+    "ratio": 14.6
+  },
+  {
+    "city": "杭州",
+    "high_value_count": 137,
+    "total": 1019,
+    "ratio": 13.4
+  },
+  {
+    "city": "深圳",
+    "high_value_count": 125,
+    "total": 976,
+    "ratio": 12.8
+  },
+  {
+    "city": "北京",
+    "high_value_count": 118,
+    "total": 1042,
+    "ratio": 11.3
+  },
+  {
+    "city": "上海",
+    "high_value_count": 94,
+    "total": 1020,
+    "ratio": 9.2
+  }
+]

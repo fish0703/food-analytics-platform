@@ -1,0 +1,97 @@
+[
+  {
+    "name": "火锅",
+    "value": 1253,
+    "ratio": 12.5
+  },
+  {
+    "name": "日料",
+    "value": 829,
+    "ratio": 8.3
+  },
+  {
+    "name": "川菜",
+    "value": 826,
+    "ratio": 8.3
+  },
+  {
+    "name": "小吃快餐",
+    "value": 809,
+    "ratio": 8.1
+  },
+  {
+    "name": "烧烤",
+    "value": 726,
+    "ratio": 7.3
+  },
+  {
+    "name": "粤菜",
+    "value": 692,
+    "ratio": 6.9
+  },
+  {
+    "name": "面馆",
+    "value": 597,
+    "ratio": 6.0
+  },
+  {
+    "name": "西餐",
+    "value": 578,
+    "ratio": 5.8
+  },
+  {
+    "name": "韩国料理",
+    "value": 495,
+    "ratio": 5.0
+  },
+  {
+    "name": "湘菜",
+    "value": 478,
+    "ratio": 4.8
+  },
+  {
+    "name": "本帮菜",
+    "value": 414,
+    "ratio": 4.1
+  },
+  {
+    "name": "面包甜点",
+    "value": 407,
+    "ratio": 4.1
+  },
+  {
+    "name": "东南亚菜",
+    "value": 406,
+    "ratio": 4.1
+  },
+  {
+    "name": "海鲜",
+    "value": 404,
+    "ratio": 4.0
+  },
+  {
+    "name": "咖啡厅",
+    "value": 391,
+    "ratio": 3.9
+  },
+  {
+    "name": "自助餐",
+    "value": 301,
+    "ratio": 3.0
+  },
+  {
+    "name": "私房菜",
+    "value": 206,
+    "ratio": 2.1
+  },
+  {
+    "name": "新疆菜",
+    "value": 99,
+    "ratio": 1.0
+  },
+  {
+    "name": "素食",
+    "value": 89,
+    "ratio": 0.9
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "total_cities": 10,
+  "total_merchants": 10000,
+  "total_reviews": 9027846,
+  "avg_cost": 91,
+  "total_food_types": 19,
+  "high_value_pct": 16.5,
+  "avg_taste": 3.82,
+  "avg_env": 3.72,
+  "avg_service": 3.82,
+  "avg_overall": 3.82,
+  "corr_taste_overall": 0.901,
+  "corr_env_overall": 0.811
+}

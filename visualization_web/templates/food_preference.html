@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}美食偏好 - 餐饮大数据分析平台{% endblock %}
+
+{% block extra_head %}
+<style>
+    .city-picker {
+        margin-left: 12px;
+        padding: 5px 14px;
+        font-size: 13px;
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        outline: none;
+        transition: all var(--transition);
+    }
+    .city-picker:hover { border-color: var(--primary-light); }
+    .city-picker:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--primary-ghost);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🍽️ 美食偏好分析</h1>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <div class="card-title">🏙️ 各城市最受欢迎美食类型 Top10
+            <select id="citySelect" class="city-picker" onchange="updateFoodBar()"></select>
+        </div>
+        <div id="foodBar" style="width:100%;height:450px;"></div>
+    </div>
+    <div class="chart-box">
+        <div class="card-title">🔥 城市 × 美食类型 人均消费热力图</div>
+        <div id="heatmap" style="width:100%;height:450px;"></div>
+    </div>
+</div>
+
+<script>
+let foodPreferenceData = {};
+let heatmapData = [];
+
+// ── 美食偏好 ──
+fetch('/api/city_food_preference')
+    .then(r => r.json())
+    .then(data => {
+        foodPreferenceData = data;
+        var sel = document.getElementById('citySelect');
+        Object.keys(data).forEach(function(city) {
+            sel.innerHTML += '<option value="' + city + '">' + city + '</option>';
+        });
+        sel.value = '上海';
+        updateFoodBar();
+    });
+
+function updateFoodBar() {
+    var city = document.getElementById('citySelect').value;
+    var items = foodPreferenceData[city];
+    var chart = echarts.init(document.getElementById('foodBar'));
+    chart.setOption({
+        title: { text: city + ' 最受欢迎美食', left: 'center', textStyle: {fontSize:14} },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'value', name: '占比(%)' },
+        yAxis: { type: 'category', data: items.map(function(i) { return i.type; }).reverse() },
+        series: [{
+            type: 'bar',
+            data: items.map(function(i) { return i.ratio; }).reverse(),
+            itemStyle: {
+                color: new echarts.graphic.LinearGradient(0,0,1,0, [
+                    {offset:0, color:'#fd79a8'}, {offset:1, color:'#e74c3c'}
+                ]),
+                borderRadius: [0,4,4,0]
+            },
+            label: { show: true, position: 'right', formatter: '{c}%' }
+        }],
+        grid: { left: 80, right: 60 }
+    });
+}
+
+// ── 热力图 ──
+fetch('/api/food_cost_heatmap')
+    .then(r => r.json())
+    .then(data => {
+        heatmapData = data;
+        var cities = [...new Set(data.map(function(d) { return d[0]; }))];
+        var foods = [...new Set(data.map(function(d) { return d[1]; }))];
+        var chart = echarts.init(document.getElementById('heatmap'));
+        chart.setOption({
+            tooltip: {
+                formatter: function(p) { return p.name + '<br/>人均: ¥' + p.value[2]; }
+            },
+            xAxis: { type: 'category', data: cities, axisLabel: {rotate: 30} },
+            yAxis: { type: 'category', data: foods },
+            visualMap: {
+                min: 0, max: 140,
+                text: ['高', '低'],
+                inRange: { color: ['#e0f3f8','#ffffbf','#fee090','#fc8d59','#d73027'] }
+            },
+            series: [{
+                type: 'heatmap',
+                data: data,
+                label: { show: true, fontSize: 11 }
+            }],
+            grid: { left: 100, bottom: 80 }
+        });
+    });
+</script>
+{% endblock %}

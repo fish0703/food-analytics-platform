@@ -1,0 +1,302 @@
+[
+  {
+    "name": "肉",
+    "value": 660,
+    "scaled": 100
+  },
+  {
+    "name": "拉米",
+    "value": 608,
+    "scaled": 92
+  },
+  {
+    "name": "豆皮",
+    "value": 388,
+    "scaled": 59
+  },
+  {
+    "name": "毛肚",
+    "value": 385,
+    "scaled": 58
+  },
+  {
+    "name": "肥牛",
+    "value": 383,
+    "scaled": 58
+  },
+  {
+    "name": "滑",
+    "value": 381,
+    "scaled": 58
+  },
+  {
+    "name": "餐肉",
+    "value": 380,
+    "scaled": 58
+  },
+  {
+    "name": "肠",
+    "value": 366,
+    "scaled": 55
+  },
+  {
+    "name": "藕片",
+    "value": 366,
+    "scaled": 55
+  },
+  {
+    "name": "蛋糕",
+    "value": 366,
+    "scaled": 55
+  },
+  {
+    "name": "黄喉",
+    "value": 352,
+    "scaled": 53
+  },
+  {
+    "name": "肉串",
+    "value": 335,
+    "scaled": 51
+  },
+  {
+    "name": "拉面",
+    "value": 333,
+    "scaled": 50
+  },
+  {
+    "name": "夫妻肺片",
+    "value": 327,
+    "scaled": 50
+  },
+  {
+    "name": "煎",
+    "value": 323,
+    "scaled": 49
+  },
+  {
+    "name": "排",
+    "value": 322,
+    "scaled": 49
+  },
+  {
+    "name": "凉皮",
+    "value": 318,
+    "scaled": 48
+  },
+  {
+    "name": "担担面",
+    "value": 316,
+    "scaled": 48
+  },
+  {
+    "name": "麻婆豆腐",
+    "value": 313,
+    "scaled": 47
+  },
+  {
+    "name": "麻辣",
+    "value": 313,
+    "scaled": 47
+  },
+  {
+    "name": "噌",
+    "value": 312,
+    "scaled": 47
+  },
+  {
+    "name": "宫保鸡丁",
+    "value": 311,
+    "scaled": 47
+  },
+  {
+    "name": "回锅肉",
+    "value": 311,
+    "scaled": 47
+  },
+  {
+    "name": "三刺",
+    "value": 310,
+    "scaled": 47
+  },
+  {
+    "name": "拼盘",
+    "value": 310,
+    "scaled": 47
+  },
+  {
+    "name": "烧鹅",
+    "value": 309,
+    "scaled": 47
+  },
+  {
+    "name": "锅",
+    "value": 308,
+    "scaled": 47
+  },
+  {
+    "name": "辣粉",
+    "value": 307,
+    "scaled": 47
+  },
+  {
+    "name": "辣鸡",
+    "value": 301,
+    "scaled": 46
+  },
+  {
+    "name": "妇罗",
+    "value": 301,
+    "scaled": 46
+  },
+  {
+    "name": "饺",
+    "value": 297,
+    "scaled": 45
+  },
+  {
+    "name": "鳗饭",
+    "value": 296,
+    "scaled": 45
+  },
+  {
+    "name": "煎饼果",
+    "value": 286,
+    "scaled": 43
+  },
+  {
+    "name": "肉夹馍",
+    "value": 286,
+    "scaled": 43
+  },
+  {
+    "name": "笼包",
+    "value": 286,
+    "scaled": 43
+  },
+  {
+    "name": "烤鸡翅",
+    "value": 283,
+    "scaled": 43
+  },
+  {
+    "name": "扇贝",
+    "value": 279,
+    "scaled": 42
+  },
+  {
+    "name": "骨肉连",
+    "value": 279,
+    "scaled": 42
+  },
+  {
+    "name": "干炒牛河",
+    "value": 277,
+    "scaled": 42
+  },
+  {
+    "name": "豉排骨",
+    "value": 270,
+    "scaled": 41
+  },
+  {
+    "name": "烤",
+    "value": 265,
+    "scaled": 40
+  },
+  {
+    "name": "烤韭菜",
+    "value": 264,
+    "scaled": 40
+  },
+  {
+    "name": "白鸡",
+    "value": 264,
+    "scaled": 40
+  },
+  {
+    "name": "煲饭",
+    "value": 261,
+    "scaled": 40
+  },
+  {
+    "name": "烤馒",
+    "value": 261,
+    "scaled": 40
+  },
+  {
+    "name": "叉烧",
+    "value": 248,
+    "scaled": 38
+  },
+  {
+    "name": "沙拉",
+    "value": 248,
+    "scaled": 38
+  },
+  {
+    "name": "烤茄",
+    "value": 243,
+    "scaled": 37
+  },
+  {
+    "name": "牛排",
+    "value": 238,
+    "scaled": 36
+  },
+  {
+    "name": "兰拉面",
+    "value": 237,
+    "scaled": 36
+  },
+  {
+    "name": "葱拌面",
+    "value": 234,
+    "scaled": 35
+  },
+  {
+    "name": "肠粉",
+    "value": 233,
+    "scaled": 35
+  },
+  {
+    "name": "刀面",
+    "value": 229,
+    "scaled": 35
+  },
+  {
+    "name": "臊面",
+    "value": 226,
+    "scaled": 34
+  },
+  {
+    "name": "剁椒",
+    "value": 226,
+    "scaled": 34
+  },
+  {
+    "name": "馄饨",
+    "value": 221,
+    "scaled": 33
+  },
+  {
+    "name": "酱面",
+    "value": 221,
+    "scaled": 33
+  },
+  {
+    "name": "牛肉面",
+    "value": 220,
+    "scaled": 33
+  },
+  {
+    "name": "面",
+    "value": 219,
+    "scaled": 33
+  },
+  {
+    "name": "农家",
+    "value": 218,
+    "scaled": 33
+  }
+]

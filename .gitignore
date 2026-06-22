@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
+
+# Temporary / check files
+_check.txt
+_cols.txt
+derby.log
+
+# Large raw data files (intermediate products)
+cleaned_restaurants.csv
+dianping_restaurants.csv
+
+# Backup
+visualization_web/data_backup/
+
+# Archives
+*.rar
+
+# OS
+.DS_Store
+Thumbs.db

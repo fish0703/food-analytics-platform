@@ -1,0 +1,687 @@
+{% extends "base.html" %}
+{% block title %}评价分析 - 餐饮大数据分析平台{% endblock %}
+
+{% block extra_head %}
+<style>
+    .chart-selector-wrap {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        padding: 16px 20px;
+        background: var(--surface);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+    }
+    .chart-selector-wrap label {
+        font-family: 'Noto Serif SC', 'PingFang SC', serif;
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+    }
+    .chart-selector-wrap select {
+        padding: 9px 14px;
+        font-size: 14px;
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        outline: none;
+        transition: all var(--transition);
+    }
+    .chart-selector-wrap select:hover {
+        border-color: var(--primary-light);
+    }
+    .chart-selector-wrap select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px var(--primary-ghost);
+    }
+    #chartSelect { min-width: 360px; }
+    #citySelect { min-width: 130px; }
+    #foodTypeSelect { min-width: 130px; }
+    .chart-selector-wrap .info-badge {
+        background: var(--primary-ghost);
+        border: 1px solid var(--primary-light);
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+    .chart-selector-wrap .info-badge b {
+        color: var(--primary);
+        font-weight: 700;
+    }
+    .insight-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-top: 20px;
+    }
+    .insight-item {
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--primary);
+        box-shadow: var(--shadow-sm);
+        transition: transform var(--transition), box-shadow var(--transition);
+    }
+    .insight-item:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+    .insight-item .val {
+        font-family: 'Noto Serif SC', 'PingFang SC', serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    .insight-item .lbl {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📈 评价指标关联分析</h1>
+
+<!-- 双下拉选择器 -->
+<div class="chart-selector-wrap">
+    <label for="chartSelect">📊 分析图表：</label>
+    <select id="chartSelect">
+        <option value="chart1">① 人均消费 vs 评价指数（带拟合线）</option>
+        <option value="chart2">② 人均消费 vs 综合指数（气泡大小 = 点评数量）</option>
+        <option value="chart3">③ 口味指数 vs 环境指数（四象限矩阵分析）</option>
+        <option value="chart4">④ 点评数量 vs 评价指数（口碑热度关联）</option>
+    </select>
+    <label for="citySelect">📍 筛选城市：</label>
+    <select id="citySelect">
+        <option value="全部">全部城市</option>
+    </select>
+    <label for="foodTypeSelect">🍜 美食品类：</label>
+    <select id="foodTypeSelect">
+        <option value="全部">全部品类</option>
+    </select>
+    <span class="info-badge">当前显示: <b id="filteredCount">—</b> 个数据点</span>
+</div>
+
+<!-- 单张大图 -->
+<div class="card">
+    <div class="card-title" id="chartTitle">① 人均消费 vs 评价指数（带拟合线）</div>
+    <div id="mainChart" style="width:100%;height:580px;"></div>
+</div>
+
+<!-- 数据洞察面板 -->
+<div class="insight-row" id="insightPanel"></div>
+
+<script>
+// ==================== 全局状态 ====================
+var allData = [];
+var currentChart = 'chart1';
+var currentCity = '苏州';
+var currentFoodType = '全部';
+var chartInstance = null;
+
+// 10 城市颜色
+var CITY_COLORS = {
+    '上海': '#e74c3c', '北京': '#3498db', '广州': '#2ecc71',
+    '深圳': '#f39c12', '成都': '#9b59b6', '杭州': '#1abc9c',
+    '武汉': '#e67e22', '南京': '#2980b9', '苏州': '#27ae60',
+    '重庆': '#e91e63'
+};
+
+// 全部城市时的默认颜色（用于单城市视图）
+var DEFAULT_DOT_COLOR = '#3498db';
+
+// ==================== 加载数据 ====================
+fetch('/api/score_matrix')
+    .then(r => r.json())
+    .then(raw => {
+        allData = raw.map(d => ({
+            cost: d[0], reviewScore: d[1], tasteScore: d[2],
+            envScore: d[3], serviceScore: d[4], composite: d[5],
+            reviewCount: d[6], popularity: d[7], balance: d[8],
+            foodType: d[9], city: d[10]
+        }));
+
+        // 填充城市下拉框
+        var cities = [];
+        var citySet = {};
+        allData.forEach(function(d) {
+            if (!citySet[d.city]) { citySet[d.city] = true; cities.push(d.city); }
+        });
+        cities.sort();
+        var sel = document.getElementById('citySelect');
+        cities.forEach(function(c) {
+            var opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            sel.appendChild(opt);
+        });
+        // 默认选中苏州
+        sel.value = '苏州';
+
+        // 填充美食品类下拉框
+        var foodTypes = [];
+        var foodSet = {};
+        allData.forEach(function(d) {
+            if (!foodSet[d.foodType]) { foodSet[d.foodType] = true; foodTypes.push(d.foodType); }
+        });
+        foodTypes.sort();
+        var foodSel = document.getElementById('foodTypeSelect');
+        foodTypes.forEach(function(ft) {
+            var opt = document.createElement('option');
+            opt.value = ft;
+            opt.textContent = ft;
+            foodSel.appendChild(opt);
+        });
+
+        // 初始化第一张图表
+        switchChart('chart1');
+    });
+
+// ==================== 事件绑定 ====================
+document.getElementById('chartSelect').addEventListener('change', function() {
+    currentChart = this.value;
+    rebuildChart();
+});
+
+document.getElementById('citySelect').addEventListener('change', function() {
+    currentCity = this.value;
+    rebuildChart();
+});
+
+document.getElementById('foodTypeSelect').addEventListener('change', function() {
+    currentFoodType = this.value;
+    rebuildChart();
+});
+
+// ==================== 数据过滤 ====================
+function getFilteredData() {
+    var data = allData;
+    if (currentCity !== '全部') {
+        data = data.filter(function(d) { return d.city === currentCity; });
+    }
+    if (currentFoodType !== '全部') {
+        data = data.filter(function(d) { return d.foodType === currentFoodType; });
+    }
+    return data;
+}
+
+// ==================== 图表重建 ====================
+function rebuildChart() {
+    if (chartInstance) {
+        chartInstance.dispose();
+        chartInstance = null;
+    }
+    chartInstance = echarts.init(document.getElementById('mainChart'));
+
+    switch (currentChart) {
+        case 'chart1': buildChart1(); break;
+        case 'chart2': buildChart2(); break;
+        case 'chart3': buildChart3(); break;
+        case 'chart4': buildChart4(); break;
+    }
+}
+
+// 切换图表类型（保留城市筛选）
+function switchChart(type) {
+    currentChart = type;
+    rebuildChart();
+}
+
+// ==================== 图1: 人均消费 vs 评价指数（拟合线） ====================
+function buildChart1() {
+    document.getElementById('chartTitle').textContent =
+        '① 人均消费 vs 评价指数（带拟合线）— ' + currentCity +
+        (currentFoodType !== '全部' ? ' · ' + currentFoodType : '');
+
+    var filtered = getFilteredData();
+    document.getElementById('filteredCount').textContent = filtered.length;
+
+    var seriesData;
+
+    if (currentCity === '全部') {
+        // 按城市分组
+        var cityGroups = {};
+        filtered.forEach(function(d) {
+            if (!cityGroups[d.city]) cityGroups[d.city] = [];
+            cityGroups[d.city].push(d);
+        });
+        seriesData = Object.keys(cityGroups).map(function(city) {
+            return {
+                name: city,
+                type: 'scatter',
+                data: cityGroups[city].map(function(d) {
+                    return { value: [d.cost, d.reviewScore, d.foodType, d.city] };
+                }),
+                symbolSize: 8,
+                itemStyle: { color: CITY_COLORS[city], opacity: 0.3 },
+                emphasis: { scale: 2.5, itemStyle: { opacity: 1 } }
+            };
+        });
+        // 趋势线
+        seriesData.push({
+            type: 'line', name: '趋势线',
+            data: [[30,3.2],[60,3.5],[90,3.8],[120,4.0],[150,4.1],[200,4.2],[300,4.3]],
+            lineStyle: { color: '#e74c3c', type: 'dashed', width: 2.5 },
+            symbol: 'emptyCircle', symbolSize: 6, z: 10
+        });
+    } else {
+        // 单城市 — 按美食类型着色
+        var foodGroups = {};
+        filtered.forEach(function(d) {
+            if (!foodGroups[d.foodType]) foodGroups[d.foodType] = [];
+            foodGroups[d.foodType].push(d);
+        });
+        seriesData = Object.keys(foodGroups).map(function(ft, i) {
+            var hue = (i * 137.5) % 360;
+            return {
+                name: ft,
+                type: 'scatter',
+                data: foodGroups[ft].map(function(d) {
+                    return { value: [d.cost, d.reviewScore, d.foodType, d.city] };
+                }),
+                symbolSize: 9,
+                itemStyle: { color: 'hsl(' + hue + ',60%,50%)', opacity: 0.45 },
+                emphasis: { scale: 2.5, itemStyle: { opacity: 1 } }
+            };
+        });
+        // 趋势线
+        seriesData.push({
+            type: 'line', name: '趋势线',
+            data: [[30,3.2],[60,3.5],[90,3.8],[120,4.0],[150,4.1],[200,4.2],[300,4.3]],
+            lineStyle: { color: '#e74c3c', type: 'dashed', width: 2.5 },
+            symbol: 'emptyCircle', symbolSize: 6, z: 10
+        });
+    }
+
+    chartInstance.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter: function(p) {
+                if (p.seriesName === '趋势线')
+                    return '趋势线<br/>人均: ¥' + p.value[0] + '<br/>评价指数: ' + p.value[1];
+                return '<b>' + p.value[2] + '</b>（' + p.value[3] + '）<br/>'
+                    + '人均消费: <b>¥' + p.value[0] + '</b><br/>'
+                    + '评价指数: <b>' + p.value[1] + '</b>';
+            }
+        },
+        legend: {
+            type: 'scroll', bottom: 2, itemGap: 6,
+            itemWidth: 10, itemHeight: 8,
+            textStyle: { fontSize: 10 }
+        },
+        grid: { left: 70, right: 40, top: 30, bottom: 95 },
+        xAxis: {
+            type: 'value', name: '人均消费（元）',
+            nameLocation: 'middle', nameGap: 20,
+            nameTextStyle: { fontSize: 13, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12, align: 'right' },
+            max: function(v) { return v.max < 350 ? 350 : null; }
+        },
+        yAxis: {
+            type: 'value', name: '评价指数',
+            min: 2.5, max: 5.2,
+            nameTextStyle: { fontSize: 14, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12 }
+        },
+        series: seriesData
+    });
+
+    updateInsight('chart1', filtered);
+}
+
+// ==================== 图2: 人均消费 vs 综合指数（气泡） ====================
+function buildChart2() {
+    document.getElementById('chartTitle').textContent =
+        '② 人均消费 vs 综合指数（气泡大小 = 点评数量）— ' + currentCity +
+        (currentFoodType !== '全部' ? ' · ' + currentFoodType : '');
+
+    var filtered = getFilteredData();
+    document.getElementById('filteredCount').textContent = filtered.length;
+
+    var seriesData;
+
+    if (currentCity === '全部') {
+        var cityGroups = {};
+        filtered.forEach(function(d) {
+            if (!cityGroups[d.city]) cityGroups[d.city] = [];
+            cityGroups[d.city].push(d);
+        });
+        seriesData = Object.keys(cityGroups).map(function(city) {
+            return {
+                name: city,
+                type: 'scatter',
+                data: cityGroups[city].map(function(d) {
+                    return {
+                        value: [d.cost, d.composite, d.reviewCount, d.foodType, d.city],
+                        symbolSize: Math.max(5, Math.min(36, Math.sqrt(d.reviewCount) / 40))
+                    };
+                }),
+                itemStyle: { color: CITY_COLORS[city], opacity: 0.3 },
+                emphasis: { scale: 2, itemStyle: { opacity: 1 } }
+            };
+        });
+    } else {
+        var foodGroups = {};
+        filtered.forEach(function(d) {
+            if (!foodGroups[d.foodType]) foodGroups[d.foodType] = [];
+            foodGroups[d.foodType].push(d);
+        });
+        seriesData = Object.keys(foodGroups).map(function(ft, i) {
+            var hue = (i * 137.5) % 360;
+            return {
+                name: ft,
+                type: 'scatter',
+                data: foodGroups[ft].map(function(d) {
+                    return {
+                        value: [d.cost, d.composite, d.reviewCount, d.foodType, d.city],
+                        symbolSize: Math.max(5, Math.min(36, Math.sqrt(d.reviewCount) / 40))
+                    };
+                }),
+                itemStyle: { color: 'hsl(' + hue + ',60%,50%)', opacity: 0.45 },
+                emphasis: { scale: 2, itemStyle: { opacity: 1 } }
+            };
+        });
+    }
+
+    chartInstance.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter: function(p) {
+                return '<b>' + p.value[3] + '</b>（' + p.value[4] + '）<br/>'
+                    + '人均消费: <b>¥' + p.value[0] + '</b><br/>'
+                    + '综合指数: <b>' + p.value[1] + '</b><br/>'
+                    + '点评数量: <b>' + p.value[2].toLocaleString() + ' 条</b>';
+            }
+        },
+        legend: {
+            type: 'scroll', bottom: 2, itemGap: 6,
+            itemWidth: 10, itemHeight: 8,
+            textStyle: { fontSize: 10 }
+        },
+        grid: { left: 70, right: 40, top: 30, bottom: 95 },
+        xAxis: {
+            type: 'value', name: '人均消费（元）',
+            nameLocation: 'middle', nameGap: 20,
+            nameTextStyle: { fontSize: 13, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12, align: 'right' },
+            max: function(v) { return v.max < 350 ? 350 : null; }
+        },
+        yAxis: {
+            type: 'value', name: '综合指数',
+            min: 2.5, max: 5.2,
+            nameTextStyle: { fontSize: 14, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12 }
+        },
+        series: seriesData
+    });
+
+    updateInsight('chart2', filtered);
+}
+
+// ==================== 图3: 口味 vs 环境（四象限矩阵） ====================
+function buildChart3() {
+    document.getElementById('chartTitle').textContent =
+        '③ 口味指数 vs 环境指数（四象限矩阵分析）— ' + currentCity +
+        (currentFoodType !== '全部' ? ' · ' + currentFoodType : '');
+
+    var filtered = getFilteredData();
+    document.getElementById('filteredCount').textContent = filtered.length;
+
+    var seriesData;
+
+    if (currentCity === '全部') {
+        var cityGroups = {};
+        filtered.forEach(function(d) {
+            if (!cityGroups[d.city]) cityGroups[d.city] = [];
+            cityGroups[d.city].push(d);
+        });
+        seriesData = Object.keys(cityGroups).map(function(city) {
+            return {
+                name: city,
+                type: 'scatter',
+                data: cityGroups[city].map(function(d) {
+                    return { value: [d.tasteScore, d.envScore, d.foodType, d.city] };
+                }),
+                symbolSize: 7,
+                itemStyle: { color: CITY_COLORS[city], opacity: 0.28 },
+                emphasis: { scale: 2.5, itemStyle: { opacity: 1 } }
+            };
+        });
+    } else {
+        var foodGroups = {};
+        filtered.forEach(function(d) {
+            if (!foodGroups[d.foodType]) foodGroups[d.foodType] = [];
+            foodGroups[d.foodType].push(d);
+        });
+        seriesData = Object.keys(foodGroups).map(function(ft, i) {
+            var hue = (i * 137.5) % 360;
+            return {
+                name: ft,
+                type: 'scatter',
+                data: foodGroups[ft].map(function(d) {
+                    return { value: [d.tasteScore, d.envScore, d.foodType, d.city] };
+                }),
+                symbolSize: 8,
+                itemStyle: { color: 'hsl(' + hue + ',60%,50%)', opacity: 0.45 },
+                emphasis: { scale: 2.5, itemStyle: { opacity: 1 } }
+            };
+        });
+    }
+
+    // 四象限分割线
+    seriesData.push({
+        type: 'line', markLine: {
+            silent: true, symbol: 'none',
+            lineStyle: { color: '#bbb', type: 'dashed', width: 2 },
+            data: [
+                { xAxis: 3.85, label: { formatter: '口味中位线', position: 'end' } },
+                { yAxis: 3.85, label: { formatter: '环境中位线', position: 'end' } }
+            ]
+        }
+    });
+
+    chartInstance.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter: function(p) {
+                if (!p.value || p.value.length < 2) return '';
+                return '<b>' + p.value[2] + '</b>（' + p.value[3] + '）<br/>'
+                    + '口味指数: <b>' + p.value[0] + '</b><br/>'
+                    + '环境指数: <b>' + p.value[1] + '</b>';
+            }
+        },
+        legend: {
+            type: 'scroll', bottom: 5, textStyle: { fontSize: 11 }
+        },
+        grid: { left: 70, right: 40, top: 30, bottom: 55 },
+        xAxis: {
+            type: 'value', name: '口味指数',
+            min: 2.5, max: 5.2,
+            nameTextStyle: { fontSize: 14, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12 },
+            splitLine: { show: false }
+        },
+        yAxis: {
+            type: 'value', name: '环境指数',
+            min: 2.5, max: 5.2,
+            nameTextStyle: { fontSize: 14, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12 },
+            splitLine: { show: false }
+        },
+        graphic: [
+            { type: 'text', left: '72%', top: '8%',
+              style: { text: '★ 口味高 · 环境高', fill: '#27ae60', fontSize: 14, fontWeight: 'bold' } },
+            { type: 'text', left: '8%', top: '8%',
+              style: { text: '口味低 · 环境高', fill: '#95a5a6', fontSize: 13 } },
+            { type: 'text', left: '72%', top: '88%',
+              style: { text: '口味高 · 环境低', fill: '#e67e22', fontSize: 13 } },
+            { type: 'text', left: '8%', top: '88%',
+              style: { text: '两者都低', fill: '#bdc3c7', fontSize: 13 } },
+        ],
+        series: seriesData
+    });
+
+    updateInsight('chart3', filtered);
+}
+
+// ==================== 图4: 点评数量 vs 评价指数 ====================
+function buildChart4() {
+    document.getElementById('chartTitle').textContent =
+        '④ 点评数量 vs 评价指数（口碑热度关联）— ' + currentCity +
+        (currentFoodType !== '全部' ? ' · ' + currentFoodType : '');
+
+    var filtered = getFilteredData();
+    document.getElementById('filteredCount').textContent = filtered.length;
+
+    var seriesData;
+
+    if (currentCity === '全部') {
+        var cityGroups = {};
+        filtered.forEach(function(d) {
+            if (!cityGroups[d.city]) cityGroups[d.city] = [];
+            cityGroups[d.city].push(d);
+        });
+        seriesData = Object.keys(cityGroups).map(function(city) {
+            return {
+                name: city,
+                type: 'scatter',
+                data: cityGroups[city].map(function(d) {
+                    return { value: [d.reviewCount, d.reviewScore, d.foodType, d.city] };
+                }),
+                symbolSize: 7,
+                itemStyle: { color: CITY_COLORS[city], opacity: 0.25 },
+                emphasis: { scale: 3, itemStyle: { opacity: 1 } }
+            };
+        });
+    } else {
+        var foodGroups = {};
+        filtered.forEach(function(d) {
+            if (!foodGroups[d.foodType]) foodGroups[d.foodType] = [];
+            foodGroups[d.foodType].push(d);
+        });
+        seriesData = Object.keys(foodGroups).map(function(ft, i) {
+            var hue = (i * 137.5) % 360;
+            return {
+                name: ft,
+                type: 'scatter',
+                data: foodGroups[ft].map(function(d) {
+                    return { value: [d.reviewCount, d.reviewScore, d.foodType, d.city] };
+                }),
+                symbolSize: 8,
+                itemStyle: { color: 'hsl(' + hue + ',60%,50%)', opacity: 0.45 },
+                emphasis: { scale: 3, itemStyle: { opacity: 1 } }
+            };
+        });
+    }
+
+    chartInstance.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter: function(p) {
+                return '<b>' + p.value[2] + '</b>（' + p.value[3] + '）<br/>'
+                    + '点评数量: <b>' + p.value[0].toLocaleString() + ' 条</b><br/>'
+                    + '评价指数: <b>' + p.value[1] + '</b>';
+            }
+        },
+        legend: {
+            type: 'scroll', bottom: 2, itemGap: 6,
+            itemWidth: 10, itemHeight: 8,
+            textStyle: { fontSize: 10 }
+        },
+        grid: { left: 80, right: 40, top: 30, bottom: 95 },
+        xAxis: {
+            type: 'value', name: '点评数量',
+            nameLocation: 'middle', nameGap: 20,
+            nameTextStyle: { fontSize: 13, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12, align: 'right', formatter: function(v) { return (v/1000).toFixed(0) + 'k'; } },
+            max: function(v) { return v.max < 6000 ? 6000 : null; }
+        },
+        yAxis: {
+            type: 'value', name: '评价指数',
+            min: 2.5, max: 5.2,
+            nameTextStyle: { fontSize: 14, fontWeight: 'bold' },
+            axisLabel: { fontSize: 12 }
+        },
+        series: seriesData
+    });
+
+    updateInsight('chart4', filtered);
+}
+
+// ==================== 数据洞察面板 ====================
+function updateInsight(chartType, filtered) {
+    var panel = document.getElementById('insightPanel');
+    var fd = filtered;
+    var total = fd.length;
+
+    if (total === 0) {
+        panel.innerHTML = '<div class="insight-item"><div class="val">无数据</div><div class="lbl">当前筛选条件下无样本</div></div>';
+        return;
+    }
+
+    var avgCost = Math.round(fd.reduce(function(s,d) { return s + d.cost; }, 0) / total);
+    var tasteAvg = (fd.reduce(function(s,d) { return s + d.tasteScore; }, 0) / total).toFixed(2);
+    var envAvg = (fd.reduce(function(s,d) { return s + d.envScore; }, 0) / total).toFixed(2);
+    var compAvg = (fd.reduce(function(s,d) { return s + d.composite; }, 0) / total).toFixed(2);
+    var scoreAvg = (fd.reduce(function(s,d) { return s + d.reviewScore; }, 0) / total).toFixed(2);
+    var highRated = fd.filter(function(d) { return d.reviewScore >= 4.5; });
+    var highValue = fd.filter(function(d) { return d.cost <= 60 && d.reviewScore >= 4.0; });
+
+    var items = [];
+    switch (chartType) {
+        case 'chart1':
+            items = [
+                { val: total + ' 个', lbl: '当前筛选样本量' },
+                { val: '¥' + avgCost, lbl: '人均消费均值' },
+                { val: scoreAvg, lbl: '评价指数均值（满分5）' },
+                { val: highRated.length + ' 家', lbl: '高评价商家（评分≥4.5）占比 ' + (highRated.length/total*100).toFixed(1) + '%' },
+            ];
+            break;
+        case 'chart2':
+            items = [
+                { val: total + ' 个', lbl: '当前筛选样本量' },
+                { val: compAvg, lbl: '综合指数均值（满分5）' },
+                { val: '¥' + avgCost, lbl: '人均消费均值' },
+                { val: highValue.length + ' 家', lbl: '高性价比商家（≤¥60 且评分≥4.0）占比 ' + (highValue.length/total*100).toFixed(1) + '%' },
+            ];
+            break;
+        case 'chart3':
+            var q1 = fd.filter(function(d) { return d.tasteScore >= 3.85 && d.envScore >= 3.85; }).length;
+            var q2 = fd.filter(function(d) { return d.tasteScore < 3.85 && d.envScore >= 3.85; }).length;
+            var q3 = fd.filter(function(d) { return d.tasteScore >= 3.85 && d.envScore < 3.85; }).length;
+            var q4 = fd.filter(function(d) { return d.tasteScore < 3.85 && d.envScore < 3.85; }).length;
+            items = [
+                { val: tasteAvg + ' / ' + envAvg, lbl: '口味均值 / 环境均值' },
+                { val: q1 + ' 家', lbl: '★ 双高象限（口味高·环境高）' },
+                { val: q4 + ' 家', lbl: '双低象限（口味低·环境低）' },
+                { val: q3 + ' + ' + q2 + ' 家', lbl: '一高一低象限' },
+            ];
+            break;
+        case 'chart4':
+            var highReview = fd.filter(function(d) { return d.reviewCount >= 2000; });
+            var lowRevHighScore = fd.filter(function(d) { return d.reviewCount <= 200 && d.reviewScore >= 4.5; });
+            var avgReviews = Math.round(fd.reduce(function(s,d) { return s + d.reviewCount; }, 0) / total);
+            items = [
+                { val: total + ' 个', lbl: '当前筛选样本量' },
+                { val: highReview.length + ' 家', lbl: '高点评量商家（≥2000条）' },
+                { val: lowRevHighScore.length + ' 家', lbl: '点评少但高评分（≤200条 & ≥4.5分）' },
+                { val: avgReviews + ' 条', lbl: '平均点评数' },
+            ];
+            break;
+    }
+
+    panel.innerHTML = items.map(function(item) {
+        return '<div class="insight-item"><div class="val">' + item.val + '</div><div class="lbl">' + item.lbl + '</div></div>';
+    }).join('');
+}
+</script>
+{% endblock %}
